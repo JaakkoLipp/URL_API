@@ -20,10 +20,16 @@ var urls = []shorturl{
 
 func main(){
 	router := gin.Default()
+	router.GET("/", root)
 	router.GET("/urls", getUrls)
+
 	router.Run("localhost:8080")
 }
 
 func getUrls(c *gin.Context){
 	c.IndentedJSON(http.StatusOK, urls)
+}
+
+func root(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, gin.H{"message": "Usage: GET /urls for a json list"})
 }
