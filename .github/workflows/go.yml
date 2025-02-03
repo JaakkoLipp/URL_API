@@ -1,28 +1,69 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
-name: Go
+name: Go API CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-
-  build:
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23.2"
 
-    - name: Build
-      run: go build -v ./...
+      - name: Install Dependencies
+        run: go mod tidy
 
-    - name: Test
-      run: go test -v ./...
+      - name: Run Unit Tests
+        run: go test -v ./...
+
+  build:
+    name: Build Go Binary
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23.2"
+
+      - name: Build Go Binary
+        run: go build -o url-shortener main.go
+
+      - name: Upload Binary as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: url-shortener-binary
+          path: url-shortener
+
+  docker:
+    name: Build and Push Docker Image
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/url-shortener:latest .
+          docker push ghcr.io/${{ github.repository_owner }}/url-shortener:latest
